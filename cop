@@ -1,0 +1,69 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+
+
+symbols = ['AKBNK.IS', 'ALARK.IS', 'ARCLK.IS', 'ASELS.IS', 'BIMAS.IS', 'EKGYO.IS', 'ENKAI.IS', 'EREGL.IS', 'FROTO.IS',
+           'GARAN.IS', 'GUBRF.IS', 'SAHOL.IS', 'HEKTS.IS', 'KRDMD.IS', 'KCHOL.IS', 'KOZAL.IS', 'KOZAA.IS', 'ODAS.IS',
+           'PGSUS.IS', 'PETKM.IS', 'SASA.IS', 'SISE.IS', 'TAVHL.IS', 'THYAO.IS', 'TOASO.IS', 'TUPRS.IS', 'TCELL.IS',
+           'ISCTR.IS', 'YKBNK.IS']
+
+
+end_date = datetime.today()
+
+
+start_date = end_date - timedelta(days=30)
+
+
+cumulative_returns_df = pd.DataFrame()  
+volume_increase_df = pd.DataFrame()  
+
+for symbol in symbols:
+    
+    df = yf.download(symbol, start=start_date, end=end_date)
+
+    
+    daily_returns = df['Adj Close'].pct_change(1)
+
+    
+    cumulative_returns = (1 + daily_returns).cumprod() - 1
+
+    
+    cumulative_returns_df[symbol] = cumulative_returns
+
+    
+    daily_volume = df['Volume']
+    volume_increase = (daily_volume / daily_volume.shift(1) - 1) * 100  
+    volume_increase_df[symbol] = volume_increase
+
+
+cumulative_returns_df = cumulative_returns_df.transpose()
+volume_increase_df = volume_increase_df.transpose()
+
+
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(24, 16))
+sns.set(font_scale=1)  
+
+
+sns.heatmap(cumulative_returns_df, cmap="YlGnBu", cbar=True, annot=True, linewidths=0.5,
+            annot_kws={"size": 10, "weight": "bold"}, fmt=".1%", ax=ax1)
+ax1.set_xticklabels(cumulative_returns_df.columns.strftime('%Y-%m-%d'), rotation=45)
+ax1.set_yticklabels(cumulative_returns_df.index, rotation=0)
+ax1.set_title('Hisse Senedi Kümülatif Getirileri')
+ax1.set_xlabel('Tarih')
+ax1.set_ylabel('Hisse Senedi Sembolu')
+
+
+sns.heatmap(volume_increase_df, cmap="YlGnBu", cbar=True, annot=True, linewidths=0.5,
+            annot_kws={"size": 10, "weight": "bold"}, fmt=".1f", ax=ax2)
+ax2.set_xticklabels(volume_increase_df.columns.strftime('%Y-%m-%d'), rotation=45)
+ax2.set_yticklabels(volume_increase_df.index, rotation=0)
+ax2.set_title('Günlük Hacim Artışları (%)')
+ax2.set_xlabel('Tarih')
+ax2.set_ylabel('Hisse Senedi Sembolu')
+
+plt.tight_layout()
+plt.show()
