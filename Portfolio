@@ -1,0 +1,96 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+
+
+symbols = ['AKBNK.IS', 'ALARK.IS', 'ARCLK.IS', 'ASELS.IS', 'BIMAS.IS', 'EKGYO.IS', 'ENKAI.IS', 'EREGL.IS', 'FROTO.IS',
+           'GARAN.IS', 'GUBRF.IS', 'SAHOL.IS', 'HEKTS.IS', 'KRDMD.IS', 'KCHOL.IS', 'KOZAL.IS', 'KOZAA.IS', 'ODAS.IS',
+           'PGSUS.IS', 'PETKM.IS', 'SASA.IS', 'SISE.IS', 'TAVHL.IS', 'THYAO.IS', 'TOASO.IS', 'TUPRS.IS', 'TCELL.IS',
+           'ISCTR.IS', 'YKBNK.IS']
+
+
+end_date = datetime.today()
+
+
+start_date = end_date - timedelta(days=30)
+
+
+all_data = yf.download(symbols, start=start_date, end=end_date)['Adj Close']
+
+
+daily_returns = all_data.pct_change(1)
+
+
+daily_returns_df = pd.DataFrame()
+
+for symbol in symbols:
+    daily_returns_df[symbol] = daily_returns[symbol]
+
+
+last_daily_returns = daily_returns_df.iloc[-1]
+
+
+selected_symbols_cumulative_returns = last_daily_returns.nsmallest(20).index
+
+print("Kümülatif Getirisi En Az Olan 20 Hisse:")
+print(selected_symbols_cumulative_returns)
+
+
+selected_symbols_list = selected_symbols_cumulative_returns.tolist()
+
+
+start_date_volume = end_date - timedelta(days=7)
+
+
+volume_increase_last_7_days = {}
+for symbol in selected_symbols_list:
+    
+    df = yf.download(symbol, start=start_date_volume, end=end_date)
+
+    
+    daily_volume = df['Volume']
+    volume_increase = (daily_volume / daily_volume.shift(1) - 1).iloc[-7:].cumsum().iloc[-1] * 100  # Son 7 günde kümülatif artış
+    volume_increase_last_7_days[symbol] = volume_increase
+
+
+selected_symbols_volume_increase = dict(sorted(volume_increase_last_7_days.items(), key=lambda item: item[1], reverse=True)[:10])
+
+print("Son 7 Günde Kümülatif Volume Artışı En Yüksek 10 Hisse:")
+print(selected_symbols_volume_increase)
+
+selected_symbols_volume_increase_positive = {symbol: volume_increase for symbol, volume_increase in selected_symbols_volume_increase.items() if volume_increase > 0}
+
+print("Son 7 Günde Kümülatif Volume Artışı Pozitif Olan Hisse Senetleri:")
+print(selected_symbols_volume_increase_positive)
+
+equal_weights = [1 / len(selected_symbols_volume_increase_positive)] * len(selected_symbols_volume_increase_positive)
+
+
+selected_returns = daily_returns_df[list(selected_symbols_volume_increase_positive.keys())]
+
+
+portfolio_returns = np.dot(selected_returns.mean(), equal_weights) * 252
+
+
+portfolio_variance = np.dot(equal_weights, np.dot(selected_returns.cov() * 252, equal_weights))
+
+
+covariance_matrix = selected_returns.cov() * 252
+
+print("Portföy Getirisi: {:.2f}".format(portfolio_returns))
+print("Portföy Varyansı: {:.2f}".format(portfolio_variance))
+print("Hisseler Arasındaki Kovaryans Matrisi:")
+print(covariance_matrix)
+
+
+risk_free_rate = 0.36
+
+
+
+
+sharpe_ratio = (portfolio_returns - risk_free_rate) / np.sqrt(portfolio_variance)
+
+print("Portföy Sharpe Oranı: {:.2f}".format(sharpe_ratio))
